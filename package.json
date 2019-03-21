@@ -1,0 +1,16 @@
+{
+  "name": "ddf-sql",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "etl": "0.5.19",
+    "flora-sql-parser": "0.9.1",
+    "lodash": "4.17.11"
+  }
+}
