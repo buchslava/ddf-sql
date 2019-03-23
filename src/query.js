@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const etl = require('etl');
 
-module.exports = async function query(basePath, resourcesMap) {
+module.exports = async function query(basePath, resourcesMap, recordFilterFun) {
   return new Promise((resolve) => {
     let result = [];
 
@@ -51,7 +51,11 @@ module.exports = async function query(basePath, resourcesMap) {
         result.push(value);
       }
   
-      resolve(result);
+      if (recordFilterFun) {
+        resolve(result.filter(recordFilterFun));
+      } else {
+        resolve(result);
+      }
     });
   });
 }
