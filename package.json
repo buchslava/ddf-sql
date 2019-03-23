@@ -5,10 +5,14 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node ./src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha --exit --timeout 200000 --recursive test/**/*.spec.js"
   },
-  "author": "",
+  "author": "Vyacheslav Chub<vyacheslav.chub@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/buchslava/ddf-sql.git"
+  },
   "dependencies": {
     "etl": "0.5.19",
     "flora-sql-parser": "0.9.1",

@@ -75,10 +75,4 @@ module.exports = function getRecordFilterFun(query, ast) {
   whereClauseStr = `return ${whereClauseStr};`;
 
   return new Function('record', whereClauseStr);
-
-  /*console.log(filterFun({time: 2018, geo: 'world'}));
-  console.log(filterFun({time: 2019, geo: 'world'}));
-  console.log(filterFun({}));
-  console.log(filterFun({time: 2010, geo: 'world'}));
-  console.log(filterFun({time: 2018, geo: 'foo'}));*/
 }
