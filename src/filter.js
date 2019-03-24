@@ -55,48 +55,63 @@ function getWhereCaluseString(query) {
   return result;
 }
 
+function prepareListClausesProcessing(generalPattern, clausePattern, eqOp, logicalConcatOp) {
+  return function (whereClauseStr) {
+    function describeAll() {
+      const result = [];
+      let matches;
+
+      while (matches = generalPattern.exec(whereClauseStr)) {
+        result.push({
+          sqlClause: matches[1],
+          start: matches.index,
+          end: generalPattern.lastIndex
+        });
+      }
+      return result;
+    }
+
+    function describeOne(cd) {
+      const match = clausePattern.exec(cd.sqlClause);
+      const valuesList = match[2].split(',');
+      const column = match[1];
+      const subClauses = [];
+
+      for (const value of valuesList) {
+        subClauses.push(`${column}${eqOp}${value}`);
+      }
+
+      cd.preudoJsClause = `(${subClauses.join(' ' + logicalConcatOp + ' ')})`;
+
+      return cd;
+    }
+
+    function changeSqlToJs(inClausesDesc) {
+      const cds = inClausesDesc.reverse();
+
+      for (const cd of cds) {
+        whereClauseStr = replaceBetween(whereClauseStr, cd.preudoJsClause, cd.start, cd.end);
+      }
+
+      return whereClauseStr;
+    }
+
+    return changeSqlToJs(describeAll().map(inClauseDesc => describeOne(inClauseDesc)));
+  }
+}
+
 function processInClauses(whereClauseStr) {
-  function describeAll() {
-    const result = [];
-    const pattern = /(\w+\s+IN\s+\(.*?\))/gi;
-    let matches;
-  
-    while (matches = pattern.exec(whereClauseStr)) {
-      result.push({
-        sqlClause: matches[1],
-        start: matches.index,
-        end: pattern.lastIndex
-      });
-    }
-    return result;
-  }
+  return prepareListClausesProcessing(
+    /(\w+\s+IN\s+\(.*?\))/gi,
+    /(\w+)\s+IN\s+\((.*?)\)/i,
+    '=', '||')(whereClauseStr);
+}
 
-  function describeOne(cd) {
-    const match = /(\w+)\s+IN\s+\((.*?)\)/.exec(cd.sqlClause);
-    const valuesList = match[2].split(',');
-    const column = match[1];
-    const subClauses = [];
-
-    for (const value of valuesList) {
-      subClauses.push(`${column}=${value}`);
-    }
-
-    cd.preudoJsClause = `(${subClauses.join(' || ')})`;
-
-    return cd;
-  }
-
-  function changeSqlToJs(inClausesDesc) {
-    const cds = inClausesDesc.reverse();
-
-    for (const cd of cds) {
-      whereClauseStr = replaceBetween(whereClauseStr, cd.preudoJsClause, cd.start, cd.end);
-    }
-
-    return whereClauseStr;
-  }
-
-  return changeSqlToJs(describeAll().map(inClauseDesc => describeOne(inClauseDesc)));
+function processNotInClauses(whereClauseStr) {
+  return prepareListClausesProcessing(
+    /(\w+\s+NOT\s+IN\s+\(.*?\))/gi,
+    /(\w+)\s+NOT\s+IN\s+\((.*?)\)/i,
+    '<>', '&&')(whereClauseStr);
 }
 
 module.exports = function getRecordFilterFun(query, ast) {
@@ -106,6 +121,7 @@ module.exports = function getRecordFilterFun(query, ast) {
     return null;
   }
 
+  whereClauseStr = processNotInClauses(whereClauseStr);
   whereClauseStr = processInClauses(whereClauseStr);
 
   const columnsFromWhereClause = getColumnsFromWhereClause(ast.where);
@@ -122,6 +138,7 @@ module.exports = function getRecordFilterFun(query, ast) {
   whereClauseStr = whereClauseStr.replace(new RegExp('\\s+AND\\s+', 'gmi'), ' && ');
   whereClauseStr = whereClauseStr.replace(new RegExp('\\s+OR\\s+', 'gmi'), ' || ');
   whereClauseStr = whereClauseStr.replace(new RegExp('\\s?=\\s?', 'gmi'), '==');
+  whereClauseStr = whereClauseStr.replace(new RegExp('\\s?<>\\s?', 'gmi'), '!=');
   whereClauseStr = `return ${whereClauseStr};`;
 
   return new Function('record', whereClauseStr);
