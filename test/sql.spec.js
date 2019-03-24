@@ -3,7 +3,7 @@ const path = require('path');
 const Session = require('../src/session');
 const expect = chai.expect;
 
-const sgPath = path.resolve('..', 'sg', 'ddf--gapminder--systema_globalis');
+const sgPath = path.resolve('..', 'sg');
 
 describe('queries', () => {
   describe('happy flow', () => {
