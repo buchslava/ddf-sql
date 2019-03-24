@@ -22,4 +22,15 @@ describe('filters', () => {
 
     done();
   });
+  it.only('in operator', done => {
+    const sqlQuery = `
+    SELECT geo, time, income_mountains FROM datapoints 
+    WHERE time=2018 AND (geo IN ('world', 'country') 
+    OR geo IN ('foo')) ORDER BY time`;
+    const parser = new Parser();
+    const ast = parser.parse(sqlQuery);
+    const filterFun = getRecordFilterFun(sqlQuery, ast);
+
+    done();
+  });
 });  

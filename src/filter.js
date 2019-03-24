@@ -1,3 +1,7 @@
+function replaceBetween(where, what, start, end) {
+  return where.substring(0, start) + what + where.substring(end);
+}
+
 function regexIndexOf(str, regexArr, startpos = 0) {
   for (const regex of regexArr) {
     const indexOf = str.substring(startpos || 0).search(regex);
@@ -51,12 +55,58 @@ function getWhereCaluseString(query) {
   return result;
 }
 
+function processInClauses(whereClauseStr) {
+  function describeAll() {
+    const result = [];
+    const pattern = /(\w+\s+IN\s+\(.*?\))/gi;
+    let matches;
+  
+    while (matches = pattern.exec(whereClauseStr)) {
+      result.push({
+        sqlClause: matches[1],
+        start: matches.index,
+        end: pattern.lastIndex
+      });
+    }
+    return result;
+  }
+
+  function describeOne(cd) {
+    const match = /(\w+)\s+IN\s+\((.*?)\)/.exec(cd.sqlClause);
+    const valuesList = match[2].split(',');
+    const column = match[1];
+    const subClauses = [];
+
+    for (const value of valuesList) {
+      subClauses.push(`${column}=${value}`);
+    }
+
+    cd.preudoJsClause = `(${subClauses.join(' || ')})`;
+
+    return cd;
+  }
+
+  function changeSqlToJs(inClausesDesc) {
+    const cds = inClausesDesc.reverse();
+
+    for (const cd of cds) {
+      whereClauseStr = replaceBetween(whereClauseStr, cd.preudoJsClause, cd.start, cd.end);
+    }
+
+    return whereClauseStr;
+  }
+
+  return changeSqlToJs(describeAll().map(inClauseDesc => describeOne(inClauseDesc)));
+}
+
 module.exports = function getRecordFilterFun(query, ast) {
   let whereClauseStr = getWhereCaluseString(query);
 
   if (whereClauseStr === null) {
     return null;
   }
+
+  whereClauseStr = processInClauses(whereClauseStr);
 
   const columnsFromWhereClause = getColumnsFromWhereClause(ast.where);
   const processed = new Set();
