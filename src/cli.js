@@ -7,9 +7,8 @@ SELECT concept, concept_type FROM concepts
 https://github.com/open-numbers/ddf--unpop--wpp_population/blob/master/
 
 SELECT geo,year,gender,age,population FROM datapoints WHERE
-geo IN ('world') AND (geo.un_state=true OR geo.is--global OR geo.is--world_4region) AND year=2018
+(geo.un_state=true OR geo.is--global=true OR geo.is--world_4region=true) AND year=2018
 AND gender IN ('female') AND age NOT IN ('80plus','100plus') ORDER BY year
-
 */
 const readline = require('readline');
 const rl = readline.createInterface({
