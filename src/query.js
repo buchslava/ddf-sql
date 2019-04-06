@@ -13,7 +13,8 @@ module.exports = async function query(basePath, resourcesMap, recordFilterFun) {
       const relatedKeys = resourcesMap.get(file).keys;
       const relatedValues = resourcesMap.get(file).values;
 
-      // request(`https://raw.githubusercontent.com/open-numbers/ddf--gapminder--systema_globalis/master/${file}`)  
+      // request(`https://raw.githubusercontent.com/open-numbers/ddf--gapminder--systema_globalis/master/${file}`) 
+      
       fs.createReadStream(path.resolve(basePath, file))
         .pipe(etl.csv())
         .pipe(etl.map(record => {

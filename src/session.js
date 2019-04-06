@@ -5,6 +5,7 @@ const { promisify } = require('util');
 const { intersection, difference, isEmpty, includes } = require('lodash');
 const getRecordFilterFun = require('./filter');
 const query = require('./query');
+const foo = require('./optimize');
 const readFile = promisify(fs.readFile);
 
 module.exports = class Session {
@@ -16,12 +17,21 @@ module.exports = class Session {
   async runSQL(sqlQuery) {
     if (!this.datapackage) {
       this.datapackage = JSON.parse(await readFile(this.datpackagePath, 'utf-8'));
+      // new
+      /*this.resourcesHash = this.datapackage.resources.reduce((hash, resource) => {
+        hash[resource.name] = resource.path;
+        return hash;
+      }, {});*/
     }
 
     const parser = new Parser();
     const ast = parser.parse(sqlQuery);
     const columnNames = ast.columns.map(columnDesc => columnDesc.expr.column);
     const resourcesMap = new Map();
+
+    // new
+    await foo(ast.where, this.datapackage);
+    // change one generic key to many particular
 
     for (const conceptDesc of this.datapackage.ddfSchema[ast.from[0].table]) {
       const keys = intersection(conceptDesc.primaryKey, columnNames);
@@ -42,6 +52,10 @@ module.exports = class Session {
         }
       }
     }
+
+    console.log(resourcesMap);
+    process.exit(0);
+
 
     const recordFilterFun = getRecordFilterFun(sqlQuery, ast);
     return await query(this.basePath, resourcesMap, recordFilterFun);
