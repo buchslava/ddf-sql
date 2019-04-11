@@ -1,7 +1,8 @@
 const fs = require('fs');
 const request = require('request');
 const path = require('path');
-const etl = require('etl');
+const csv = require('csv-parser');
+const stripBomStream = require('strip-bom-stream');
 
 module.exports = async function query(basePath, resourcesMap, recordFilterFun) {
   return new Promise((resolve) => {
@@ -13,13 +14,14 @@ module.exports = async function query(basePath, resourcesMap, recordFilterFun) {
       const relatedKeys = resourcesMap.get(file).keys;
       const relatedValues = resourcesMap.get(file).values;
 
-      // request(`https://raw.githubusercontent.com/open-numbers/ddf--gapminder--systema_globalis/master/${file}`) 
-      
+      // request(`https://raw.githubusercontent.com/open-numbers/ddf--gapminder--systema_globalis/master/${file}`)
+
       fs.createReadStream(path.resolve(basePath, file))
-        .pipe(etl.csv())
-        .pipe(etl.map(record => {
+        .pipe(stripBomStream())
+        .pipe(csv())
+        .on('data', record => {
           const key = relatedKeys.map(recordKey => record[recordKey]).join('@');
-  
+
           if (!dataMapping.has(key)) {
             const obj = {};
 
@@ -28,14 +30,14 @@ module.exports = async function query(basePath, resourcesMap, recordFilterFun) {
             }
             dataMapping.set(key, obj);
           }
-  
+
           const data = dataMapping.get(key);
-  
+
           for (const value of relatedValues.values()) {
             data[value] = record[value];
             data.valuesCount++;
           }
-  
+
           if (data.valuesCount >= files.length) {
             delete data.valuesCount;
             result.push(data);
@@ -43,17 +45,17 @@ module.exports = async function query(basePath, resourcesMap, recordFilterFun) {
           } else {
             dataMapping.set(key, data);
           }
-        }))
-        .promise()
-        .then(resolve, reject);
+        })
+        .on('end', resolve)
+        .on('error', reject);
     });
-  
+
     Promise.all(files.map(file => readData(file))).then(() => {
       for (const [, value] of dataMapping.entries()) {
         delete value.valuesCount;
         result.push(value);
       }
-  
+
       if (recordFilterFun) {
         resolve(result.filter(recordFilterFun));
       } else {

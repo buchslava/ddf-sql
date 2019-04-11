@@ -15,12 +15,13 @@
     "url": "git+ssh://git@github.com/buchslava/ddf-sql.git"
   },
   "dependencies": {
+    "csv-parser": "2.2.0",
     "easy-table": "1.1.1",
-    "etl": "0.5.19",
     "flora-sql-parser": "0.9.1",
     "lodash": "4.17.11",
-    "request": "^2.88.0",
-    "traverse": "^0.6.6"
+    "request": "2.88.0",
+    "strip-bom-stream": "3.0.0",
+    "traverse": "0.6.6"
   },
   "devDependencies": {
     "chai": "4.2.0",
