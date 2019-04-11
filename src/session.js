@@ -30,6 +30,8 @@ module.exports = class Session {
     const columnNamesTemplate = ast.columns.map(columnDesc => columnDesc.expr.column);
     const resourcesMap = new Map();
 
+    // console.log(JSON.stringify(ast, null, 2));
+
     // //////////////////////////////////////////////////////
     const { conceptTypeHash } = await getConceptsInfo(this.basePath, this.datapackage);
     const { enityConditionDescs } = optimizator(ast.where, this.datapackage);
@@ -47,6 +49,8 @@ module.exports = class Session {
     if (isEmpty(columnNamesCompletes)) {
       columnNamesCompletes.push(columnNamesTemplate);
     }
+
+    // //////////////////////////////////////////////////////
 
     // console.log(util.astToSQL(ast));
 
