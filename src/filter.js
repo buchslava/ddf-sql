@@ -1,3 +1,5 @@
+const { Parser, util } = require('flora-sql-parser');
+
 function replaceBetween(where, what, start, end) {
   return where.substring(0, start) + what + where.substring(end);
 }
@@ -36,9 +38,9 @@ function getColumnsFromWhereClause(whereClause) {
 }
 
 function getWhereCaluseString(query) {
-  const whereStartMarker = 'WHERE ';
+  const whereStartMarker = /WHERE\s+/;
   const whereEndMarkers = [/GROUP\s+BY/, /ORDER\s+BY/, /LIMIT/];
-  const sPos = query.indexOf(whereStartMarker);
+  const sPos = regexIndexOf(query, [whereStartMarker]);
 
   let result = null;
 
@@ -49,7 +51,7 @@ function getWhereCaluseString(query) {
       ePos = query.length;
     }
 
-    result = query.substring(sPos + whereStartMarker.length, ePos);
+    result = query.substring(sPos + 5, ePos);
   }
 
   return result;
@@ -114,17 +116,23 @@ function processNotInClauses(whereClauseStr) {
     '<>', '&&')(whereClauseStr);
 }
 
-module.exports = function getRecordFilterFun(query, ast) {
+module.exports = function getRecordFilterFun(ast) {
+  const query = util.astToSQL(ast);
   let whereClauseStr = getWhereCaluseString(query);
 
   if (whereClauseStr === null) {
     return null;
   }
 
+  const columnsFromWhereClause = getColumnsFromWhereClause(ast.where);
+
+  for (const column of columnsFromWhereClause) {
+    whereClauseStr = whereClauseStr.replace(new RegExp(`"${column}"`, 'gmi'), column);
+  }
+
   whereClauseStr = processNotInClauses(whereClauseStr);
   whereClauseStr = processInClauses(whereClauseStr);
 
-  const columnsFromWhereClause = getColumnsFromWhereClause(ast.where);
   const processed = new Set();
 
   for (const column of columnsFromWhereClause) {

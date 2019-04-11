@@ -1,11 +1,12 @@
 const fs = require('fs');
 const path = require('path');
-const { Parser } = require('flora-sql-parser');
+const { Parser, util } = require('flora-sql-parser');
 const { promisify } = require('util');
-const { intersection, difference, isEmpty, includes } = require('lodash');
+const { intersection, difference, isEmpty, includes, clone } = require('lodash');
 const getRecordFilterFun = require('./filter');
 const query = require('./query');
-const foo = require('./optimize');
+const getConceptsInfo = require('./concepts');
+const optimizator = require('./optimize');
 const readFile = promisify(fs.readFile);
 
 module.exports = class Session {
@@ -26,38 +27,66 @@ module.exports = class Session {
 
     const parser = new Parser();
     const ast = parser.parse(sqlQuery);
-    const columnNames = ast.columns.map(columnDesc => columnDesc.expr.column);
+    const columnNamesTemplate = ast.columns.map(columnDesc => columnDesc.expr.column);
     const resourcesMap = new Map();
 
-    // new
-    await foo(ast.where, this.datapackage);
-    // change one generic key to many particular
+    // //////////////////////////////////////////////////////
+    const { conceptTypeHash } = await getConceptsInfo(this.basePath, this.datapackage);
+    const { enityConditionDescs } = optimizator(ast.where, this.datapackage);
+    const columnNamesCompletes = [];
+
+    for (const desc of enityConditionDescs) {
+      const oldKey = desc.entity;
+      const newKey = desc.property.substr(4);
+      const newNamesComplete = clone(columnNamesTemplate);
+      const index = newNamesComplete.indexOf(oldKey);
+      newNamesComplete.splice(index, 1, newKey);
+      columnNamesCompletes.push(newNamesComplete);
+    }
+
+    if (isEmpty(columnNamesCompletes)) {
+      columnNamesCompletes.push(columnNamesTemplate);
+    }
+
+    // console.log(util.astToSQL(ast));
 
     for (const conceptDesc of this.datapackage.ddfSchema[ast.from[0].table]) {
-      const keys = intersection(conceptDesc.primaryKey, columnNames);
-      const values = difference(columnNames, conceptDesc.primaryKey);
+      for (const columnNames of columnNamesCompletes) {
+        const keys = intersection(conceptDesc.primaryKey, columnNames);
+        const values = difference(columnNames, conceptDesc.primaryKey);
 
-      if (!isEmpty(keys) && includes(values, conceptDesc.value)) {
-        for (const resource of this.datapackage.resources) {
-          if (includes(conceptDesc.resources, resource.name)) {
-            if (!resourcesMap.has(resource.path)) {
-              resourcesMap.set(resource.path, { keys, values: new Set() });
+        if (keys.length === conceptDesc.primaryKey.length &&
+          conceptDesc.primaryKey.length + values.length === columnNames.length &&
+          this.notEntities(values, conceptTypeHash)) {
+          for (const resource of this.datapackage.resources) {
+            if (includes(conceptDesc.resources, resource.name)) {
+              if (!resourcesMap.has(resource.path)) {
+                resourcesMap.set(resource.path, { keys, values: new Set() });
+              }
+
+              const resourceDesc = resourcesMap.get(resource.path);
+              resourceDesc.values.add(conceptDesc.value);
+
+              resourcesMap.set(resource.path, resourceDesc);
             }
-
-            const resourceDesc = resourcesMap.get(resource.path);
-            resourceDesc.values.add(conceptDesc.value);
-
-            resourcesMap.set(resource.path, resourceDesc);
           }
         }
       }
     }
 
-    console.log(resourcesMap);
-    process.exit(0);
+    // process.exit(0);
 
-
-    const recordFilterFun = getRecordFilterFun(sqlQuery, ast);
+    const recordFilterFun = getRecordFilterFun(ast);
     return await query(this.basePath, resourcesMap, recordFilterFun);
+  }
+
+  notEntities(values, conceptTypeHash) {
+    for (const value of values) {
+      if (conceptTypeHash[value] === 'entity_set' || conceptTypeHash[value] === 'entity_domain') {
+        return false;
+      }
+    }
+
+    return true;
   }
 }

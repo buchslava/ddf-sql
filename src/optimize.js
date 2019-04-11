@@ -1,3 +1,5 @@
+const traverse = require('traverse');
+
 function getEntityConditionDescriptor(obj) {
   const isLeftProper = () => !!obj.left && obj.left.type === 'column_ref' && !!obj.left.table && !!obj.left.column;
   const isRightProper = () => !!obj.right && obj.right.type === 'bool' && obj.right.value === true;
@@ -13,38 +15,38 @@ function getEntityConditionDescriptor(obj) {
   return null;
 }
 
-async function loadEntities() {
-  return new Promise(resolve => {
-    resolve();
-  });
-}
-
-module.exports = async function foo(whereClause, datapackage) {
-  // console.log(JSON.stringify(whereClause, null, 2));
+module.exports = function foo(whereClause, datapackage) {
   const enityConditionDescs = [];
 
-  function iterate(obj) {
-    for (const property in obj) {
-      if (obj.hasOwnProperty(property)) {
-        if (typeof obj[property] === 'object') {
-          const enityConditionDesc = getEntityConditionDescriptor(obj[property]);
+  traverse(whereClause).forEach(function (obj) {
+    let shouldBeExcluded = false;
 
-          if (enityConditionDesc) {
-            enityConditionDescs.push(enityConditionDesc);
-            continue;
-          }
+    if (typeof obj === 'object') {
+      const enityConditionDesc = getEntityConditionDescriptor(obj);
 
-          iterate(obj[property]);
-        }
+      if (enityConditionDesc) {
+        enityConditionDescs.push(enityConditionDesc);
+        shouldBeExcluded = true;
       }
     }
-  }
 
-  return new Promise(async (resolve) => {
-    await loadEntities();
-    iterate(whereClause);
-    console.log(enityConditionDescs);
-  
-    resolve();
+    if (shouldBeExcluded) {
+      this.update({
+        type: 'binary_expr',
+        operator: '=',
+        left: {
+          type: 'number',
+          value: 1
+        },
+        right: {
+          type: 'number',
+          value: 1
+        }
+      });
+    }
   });
+
+  return {
+    enityConditionDescs
+  };
 }
