@@ -15,7 +15,7 @@ function getEntityConditionDescriptor(obj) {
   return null;
 }
 
-module.exports = function foo(whereClause, datapackage) {
+module.exports = function optimizator(whereClause, datapackage) {
   const enityConditionDescs = [];
 
   traverse(whereClause).forEach(function (obj) {
