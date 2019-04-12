@@ -19,7 +19,10 @@ SELECT geo,year,gender,age,population FROM datapoints WHERE
 AND gender IN ('female') ORDER BY year`;
 
 (async ()=> {
+  /*const result2 = await session.runSQL(`SELECT geo FROM entities WHERE un_state='TRUE'`);
+  console.log(result2);*/
+
   const result = await session.runSQL(sql);
   console.timeEnd('sql');
-  console.log(result.length);
+  console.log(result);
 })();

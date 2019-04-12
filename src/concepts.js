@@ -18,12 +18,24 @@ module.exports = async function getConceptsInfo(basePath, datapackage) {
     });
 
     Promise.all(files.map(file => readData(file))).then(() => {
-      const conceptTypeHash = result.reduce((hash, record) => {
-        hash[record.concept] = record.concept_type;
-        return hash;
-      }, {});
+      const conceptTypeHash = {};
+      const entityDomainBySetHash = {};
+      const entitySetByDomainHash = {};
 
-      resolve({ conceptTypeHash });
+      for (const record of result) {
+        conceptTypeHash[record.concept] = record.concept_type;
+
+        if (record.concept_type === 'entity_set') {
+          if (!entitySetByDomainHash[record.domain]) {
+            entitySetByDomainHash[record.domain] = [];
+          }
+
+          entitySetByDomainHash[record.domain].push(record.concept);
+          entityDomainBySetHash[record.concept] = record.domain
+        }
+      }
+
+      resolve({ conceptTypeHash, entitySetByDomainHash, entityDomainBySetHash });
     });
   });
 }

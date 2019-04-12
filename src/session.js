@@ -33,7 +33,7 @@ module.exports = class Session {
     // console.log(JSON.stringify(ast, null, 2));
 
     // //////////////////////////////////////////////////////
-    const { conceptTypeHash } = await getConceptsInfo(this.basePath, this.datapackage);
+    const { conceptTypeHash, entitySetByDomainHash, entityDomainBySetHash } = await getConceptsInfo(this.basePath, this.datapackage);
     const { enityConditionDescs } = optimizator(ast.where, this.datapackage);
     const columnNamesCompletes = [];
 
@@ -52,7 +52,8 @@ module.exports = class Session {
 
     // //////////////////////////////////////////////////////
 
-    // console.log(util.astToSQL(ast));
+    console.log(util.astToSQL(ast));
+    // console.log(columnNamesCompletes);
 
     for (const conceptDesc of this.datapackage.ddfSchema[ast.from[0].table]) {
       for (const columnNames of columnNamesCompletes) {
@@ -81,7 +82,7 @@ module.exports = class Session {
     // process.exit(0);
 
     const recordFilterFun = getRecordFilterFun(ast);
-    return await query(this.basePath, resourcesMap, recordFilterFun);
+    return await query(this.basePath, resourcesMap, recordFilterFun, entitySetByDomainHash, entityDomainBySetHash, conceptTypeHash, columnNamesTemplate);
   }
 
   notEntities(values, conceptTypeHash) {

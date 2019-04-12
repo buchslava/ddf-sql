@@ -1,16 +1,5 @@
+const { isEmpty } = require('lodash');
 const traverse = require('traverse');
-
-function getColumnRef(obj) {
-  if (obj && obj.left && obj.left.type === 'column_ref') {
-    return obj.left.table || obj.left.column;
-  }
-
-  if (obj && obj.right && obj.right.type === 'column_ref') {
-    return obj.right.table || obj.right.column;
-  }
-
-  return null;
-}
 
 function getEntityConditionDescriptor(obj) {
   const isLeftProper = () => !!obj.left && obj.left.type === 'column_ref' && !!obj.left.table && !!obj.left.column;
@@ -28,74 +17,70 @@ function getEntityConditionDescriptor(obj) {
 }
 
 function getAstBranchesToUpdate(whereClause) {
-  const levelsOfConcepts = {};
-  const branchesToUpdate = [];
-  const enityConditionDescs = [];
-  let levelsOfDisjunction = [];
+  const data = [];
+  let modifySelectionFilesList = true;
+
+  // console.log(JSON.stringify(whereClause, null, 2));
 
   traverse(whereClause).forEach(function (obj) {
     if (obj) {
       const enityConditionDesc = getEntityConditionDescriptor(obj);
-      const columnRef = getColumnRef(obj);
-      let record = null;
-
-      if (columnRef) {
-        record = {concept: columnRef, level: this.level};
-      }
 
       if (enityConditionDesc) {
-        record = {concept: enityConditionDesc.entity, level: this.level};
-        branchesToUpdate.push(this);
-        enityConditionDescs.push(enityConditionDesc);
-      }
-
-      if (record) {
-        if (!levelsOfConcepts[record.concept]) {
-          levelsOfConcepts[record.concept] = new Set();
+        if (!enityConditionDesc.typeIs) {
+          modifySelectionFilesList = false;
         }
 
-        levelsOfConcepts[record.concept].add(record.level);
-      }
-
-      if (obj.type === 'binary_expr' && obj.operator == 'OR') {
-        levelsOfDisjunction.push(this.level);
+        data.push({
+          branchToUpdate: this,
+          enityConditionDesc
+        });
       }
     }
   });
 
-  levelsOfDisjunction = levelsOfDisjunction.sort();
-
-  let isAllowed = true;
-
-  for (const concept of Object.keys(levelsOfConcepts)) {
-    if (levelsOfConcepts[concept].size > 1 && levelsOfDisjunction.length > 0) {
-      isAllowed = false;
-      break;
-    }
-  }
-
-  return isAllowed ? {enityConditionDescs, branchesToUpdate} : {};
+  return { data, modifySelectionFilesList };
 }
 
 module.exports = function optimizator(whereClause, datapackage) {
-  const { enityConditionDescs, branchesToUpdate } = getAstBranchesToUpdate(whereClause);
+  const foo = getAstBranchesToUpdate(whereClause);
 
-  for (const branch of branchesToUpdate) {
-    branch.update({
-      type: 'binary_expr',
-      operator: '=',
-      left: {
-        type: 'number',
-        value: 1
-      },
-      right: {
-        type: 'number',
-        value: 1
-      }
-    });
+  for (const desc of foo.data) {
+    // change criteria !
+    if (foo.modifySelectionFilesList) {
+    // if (false) {
+      desc.branchToUpdate.update({
+        type: 'binary_expr',
+        operator: '=',
+        left: {
+          type: 'number',
+          value: 1
+        },
+        right: {
+          type: 'number',
+          value: 1
+        }
+      });
+    } else {
+      console.log(JSON.stringify(desc.branchToUpdate.node, null, 2));
+
+      const valueToUpdate = Object.assign({}, desc.branchToUpdate.node);
+
+      console.log('---------', valueToUpdate.left.table, valueToUpdate.left.column);
+
+      valueToUpdate.operator = 'IN';
+      valueToUpdate.left.column = valueToUpdate.left.table;
+      valueToUpdate.left.table = null;
+      valueToUpdate.right = {
+        type: 'expr_list',
+        value: [{ type: 'string', value: 'afg' }]
+      };
+      desc.branchToUpdate.update(valueToUpdate);
+    }
   }
 
   return {
-    enityConditionDescs
+    enityConditionDescs: foo.data.map(r => r.enityConditionDesc)
+    // enityConditionDescs: []
   };
 }
