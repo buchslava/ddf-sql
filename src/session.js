@@ -34,17 +34,17 @@ module.exports = class Session {
 
     // //////////////////////////////////////////////////////
     const { conceptTypeHash, entitySetByDomainHash, entityDomainBySetHash } = await getConceptsInfo(this.basePath, this.datapackage);
-    const { enityConditionDescs } = optimizator(ast.where, this.datapackage);
+    // const { enityConditionDescs } = optimizator(ast.where, this.datapackage);
     const columnNamesCompletes = [];
 
-    for (const desc of enityConditionDescs) {
+    /*for (const desc of enityConditionDescs) {
       const oldKey = desc.entity;
       const newKey = desc.property.substr(4);
       const newNamesComplete = clone(columnNamesTemplate);
       const index = newNamesComplete.indexOf(oldKey);
       newNamesComplete.splice(index, 1, newKey);
       columnNamesCompletes.push(newNamesComplete);
-    }
+    }*/
 
     if (isEmpty(columnNamesCompletes)) {
       columnNamesCompletes.push(columnNamesTemplate);

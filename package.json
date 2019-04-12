@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node ./src/cli.js",
-    "try": "node ./src/try.js",
+    "try": "node  --max-old-space-size=8192 ./src/try.js",
     "test": "mocha --exit --timeout 200000 --recursive test/**/*.spec.js"
   },
   "author": "Vyacheslav Chub<vyacheslav.chub@gmail.com>",
