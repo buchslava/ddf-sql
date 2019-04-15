@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node ./src/cli.js",
     "try": "node  --max-old-space-size=8192 ./src/try.js",
+    "idx": "node  --max-old-space-size=8192 ./src/idx.js",
     "test": "mocha --exit --timeout 200000 --recursive test/**/*.spec.js"
   },
   "author": "Vyacheslav Chub<vyacheslav.chub@gmail.com>",
