@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { isArray, includes } = require('lodash');
+const { isArray, includes, intersection } = require('lodash');
 const { resolve } = require('path');
 const { promisify } = require('util');
 const csv = require('csv-parser');
@@ -57,12 +57,12 @@ function getRecourcesMaps(datapackage) {
     const concept = resource.schema.primaryKey;
 
     if (!isArray(concept) && concept !== 'concept') {
-      if (conceptTypeHash[concept] === 'entity_set') {
-        const domain = entityDomainBySetHash[resource.schema.primaryKey];
-        const key = `${domain}@${concept}`;
+      if (conceptTypeHash[concept] === 'entity_set' || conceptTypeHash[concept] === 'entity_domain') {
+        const domain = conceptTypeHash[concept] === 'entity_set' ? entityDomainBySetHash[resource.schema.primaryKey] : resource.schema.primaryKey;
+        const key = conceptTypeHash[concept] === 'entity_set' ? `${domain}@${concept}` : `${domain}@*`;
         const content = await readCsv(resolve(basePath, resource.path));
-        // const entitiesValues = content.map(r => r[concept] || r[domain]);
         const entitiesIds = [];
+        const isFields = [];
 
         for (const record of content) {
           const entityId = record[concept] || record[domain];
@@ -70,10 +70,14 @@ function getRecourcesMaps(datapackage) {
           for (const field of Object.keys(record)) {
             if ((field.indexOf('is--') === 0 || conceptTypeHash[field] === 'boolean') && record[field].toLowerCase() === 'true') {
               if (!entityAttributesMap.has(field)) {
-                entityAttributesMap.set(field, []);
+                entityAttributesMap.set(field.replace('--', '__'), []);
               }
 
-              entityAttributesMap.get(field).push(entityId);
+              entityAttributesMap.get(field.replace('--', '__')).push(entityId);
+
+              if (field.indexOf('is--') === 0) {
+                isFields.push(field.replace('is--', ''));
+              }
             }
           }
 
@@ -82,11 +86,22 @@ function getRecourcesMaps(datapackage) {
 
         for (const dpResource of datapackage.resources) {
           const dpPrimaryKey = dpResource.schema.primaryKey;
+          const areIsFieldsExisting = intersection(isFields, dpPrimaryKey).length > 0;
 
-          if (isArray(dpPrimaryKey) && (includes(dpPrimaryKey, domain) || includes(dpPrimaryKey, concept))) {
+          if (isArray(dpPrimaryKey) && (includes(dpPrimaryKey, domain) || includes(dpPrimaryKey, concept) || areIsFieldsExisting)) {
             const dpContent = await readCsv(resolve(basePath, dpResource.path));
 
             for (const record of dpContent) {
+              for (const isField of isFields) {
+                if (record[isField]) {
+                  if (!entityValueToDapapointFileMap.has(record[isField])) {
+                    entityValueToDapapointFileMap.set(record[isField], new Set());
+                  }
+
+                  entityValueToDapapointFileMap.get(record[isField]).add(resourcesMaps.pathToId.get(dpResource.path));
+                }
+              }
+
               if (!entityValueToDapapointFileMap.has(record[concept || domain])) {
                 entityValueToDapapointFileMap.set(record[concept || domain], new Set());
               }
@@ -102,12 +117,14 @@ function getRecourcesMaps(datapackage) {
   }
 
   const entityDomains = mapToObj(entityDomainsMap);
-  const entityValueToDapapointFile = {};
+  const entityValueToDatapointFile = {};
   for (const [k, v] of entityValueToDapapointFileMap) {
-    entityValueToDapapointFile[k] = [...v];
+    entityValueToDatapointFile[k] = [...v];
   }
-  const resources = mapToObj(resourcesMaps);
   const entityAttributes = mapToObj(entityAttributesMap);
+  const idToPath = mapToObj(resourcesMaps.idToPath);
+  const pathToId = mapToObj(resourcesMaps.pathToId);
+  const resourcesMap = { idToPath, pathToId };
 
-  await writeFile('idx-datapoints.json', JSON.stringify({ entityDomains, entityAttributes, entityValueToDapapointFile, resources }, null, 2));
+  await writeFile('idx-datapoints.json', JSON.stringify({ entityDomains, entityAttributes, entityValueToDatapointFile, resourcesMap }, null, 2));
 })();

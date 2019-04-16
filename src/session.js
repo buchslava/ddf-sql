@@ -6,7 +6,7 @@ const { intersection, difference, isEmpty, includes, clone } = require('lodash')
 const getRecordFilterFun = require('./filter');
 const query = require('./query');
 const getConceptsInfo = require('./concepts');
-const optimizator = require('./optimize');
+const optimizator = require('./optimize2');
 const readFile = promisify(fs.readFile);
 
 module.exports = class Session {
@@ -18,11 +18,6 @@ module.exports = class Session {
   async runSQL(sqlQuery) {
     if (!this.datapackage) {
       this.datapackage = JSON.parse(await readFile(this.datpackagePath, 'utf-8'));
-      // new
-      /*this.resourcesHash = this.datapackage.resources.reduce((hash, resource) => {
-        hash[resource.name] = resource.path;
-        return hash;
-      }, {});*/
     }
 
     const parser = new Parser();
@@ -36,6 +31,11 @@ module.exports = class Session {
     const { conceptTypeHash, entitySetByDomainHash, entityDomainBySetHash } = await getConceptsInfo(this.basePath, this.datapackage);
     // const { enityConditionDescs } = optimizator(ast.where, this.datapackage);
     const columnNamesCompletes = [];
+
+    if (ast.from[0].table === 'datapoints') {
+      const idx = JSON.parse(await readFile(path.resolve(this.basePath, 'idx-datapoints.json'), 'utf-8'));
+      optimizator(ast.where, idx, conceptTypeHash, entityDomainBySetHash);
+    }
 
     /*for (const desc of enityConditionDescs) {
       const oldKey = desc.entity;
@@ -79,7 +79,7 @@ module.exports = class Session {
       }
     }
 
-    // process.exit(0);
+    process.exit(0);
 
     const recordFilterFun = getRecordFilterFun(ast);
     return await query(this.basePath, resourcesMap, recordFilterFun, entitySetByDomainHash, entityDomainBySetHash, conceptTypeHash, columnNamesTemplate);

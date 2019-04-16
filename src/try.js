@@ -15,7 +15,7 @@ AND gender IN ('female') ORDER BY year`;*/
 
 const sql = `
 SELECT geo,year,gender,age,population FROM datapoints WHERE
-(geo.is__global=true OR geo.is__world_4region=true) AND year=2018
+(geo='afg' OR geo NOT IN ('afg') OR geo.is__global=true OR geo.is__world_4region=true) AND year=2018
 AND gender IN ('female') ORDER BY year`;
 
 (async ()=> {
