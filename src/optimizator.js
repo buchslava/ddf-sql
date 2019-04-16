@@ -100,11 +100,22 @@ module.exports = function optimizator(whereClause, idx, conceptTypeHash, entityD
         } else {
           throw Error(`Wrong operator ${op}`);
         }
+
+        if (enityConditionDesc.attribute) {
+          const valueToUpdate = Object.assign({}, this.node);
+          valueToUpdate.operator = 'IN';
+          valueToUpdate.left.column = valueToUpdate.left.table;
+          valueToUpdate.left.table = null;
+          valueToUpdate.right = {
+            type: 'expr_list',
+            value: conditionalValue.map(v => ({type: 'string', value: v}))
+          };
+
+          this.update(valueToUpdate);
+        }
       }
     }
   });
 
-  console.log(intersection(conjunctionTable, disjunctionTable));
-
-  return [];
+  return intersection(conjunctionTable, disjunctionTable);
 }

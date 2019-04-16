@@ -3,20 +3,20 @@ const Session = require('./session');
 console.time('sql');
 const session = new Session('../pop');
 
-/*const sql = `
+const sql = `
 SELECT geo,year,gender,age,population FROM datapoints WHERE
-(geo.un_state=true OR geo.is--global=true OR geo.is--world_4region=true) AND year=2018
-AND gender IN ('female') AND age NOT IN ('80plus','100plus') ORDER BY year`;*/
+(geo.un_state=true OR geo.is__global=true OR geo.is__world_4region=true) AND year=2018
+AND gender IN ('female') AND age NOT IN ('80plus','100plus') ORDER BY year`;
 
 /*const sql = `
 SELECT geo,year,gender,age,population FROM datapoints WHERE
 (geo.un_state=true OR geo.is__global=true OR geo.is__world_4region=true) AND year=2018
 AND gender IN ('female') ORDER BY year`;*/
 
-const sql = `
+/*const sql = `
 SELECT geo,year,gender,age,population FROM datapoints WHERE
 (geo='afg' OR geo NOT IN ('afg') OR geo.is__global=true OR geo.is__world_4region=true) AND year=2018
-AND gender IN ('female') ORDER BY year`;
+AND gender IN ('female') ORDER BY year`;*/
 
 (async ()=> {
   /*const result2 = await session.runSQL(`SELECT geo FROM entities WHERE un_state='TRUE'`);
@@ -24,5 +24,5 @@ AND gender IN ('female') ORDER BY year`;
 
   const result = await session.runSQL(sql);
   console.timeEnd('sql');
-  console.log(result);
+  console.log(result.length);
 })();

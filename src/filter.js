@@ -137,7 +137,7 @@ module.exports = function getRecordFilterFun(ast) {
 
   for (const column of columnsFromWhereClause) {
     if (!processed.has(column)) {
-      whereClauseStr = whereClauseStr.replace(new RegExp(column, 'gmi'), `record['${column}']`);
+      whereClauseStr = whereClauseStr.replace(new RegExp(`(?<start>[^'])(?<cName>${column})(?<end>[^'])`, 'gmi'), `$<start>record['$<cName>']$<end>`);
     }
 
     processed.add(column);
