@@ -121,7 +121,7 @@ module.exports = function getRecordFilterFun(ast) {
   let whereClauseStr = getWhereCaluseString(query);
 
   if (whereClauseStr === null) {
-    return null;
+    return { source: whereClauseStr, recordFilterFun: null };
   }
 
   const columnsFromWhereClause = getColumnsFromWhereClause(ast.where);
@@ -149,5 +149,5 @@ module.exports = function getRecordFilterFun(ast) {
   whereClauseStr = whereClauseStr.replace(new RegExp('\\s?<>\\s?', 'gmi'), '!=');
   whereClauseStr = `return ${whereClauseStr};`;
 
-  return new Function('record', whereClauseStr);
+  return { source: whereClauseStr, recordFilterFun: new Function('record', whereClauseStr) };
 }

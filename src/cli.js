@@ -1,4 +1,4 @@
-var Table = require('easy-table')
+const Table = require('easy-table')
 const Session = require('./session');
 
 /*
@@ -22,6 +22,34 @@ let session;
 
 rl.prompt();
 
+function query(printResult = true) {
+  return async () => {
+    if (!session) {
+      console.log('session is undefined!');
+      buffer = [];
+      rl.prompt();
+      return;
+    }
+
+    const metricLabel = 'query execution time';
+    const sql = buffer.join(' ');
+    try {
+      console.time(metricLabel);
+      const result = await session.runSQL(sql);
+      console.timeEnd(metricLabel);
+      if (printResult) {
+        console.log(Table.print(result));
+      }
+      console.log(`${result.length} were selected...`);
+    } catch (e) {
+      console.log(e);
+    } finally {
+      buffer = [];
+      rl.prompt();
+    }
+  };
+}
+
 const commands = {
   use: () => {
     const dsPath = buffer.join(' ');
@@ -33,30 +61,12 @@ const commands = {
   session: () => {
     console.log(`session for "${session.basePath}"`);
     buffer = [];
-    rl.prompt();  
+    rl.prompt();
   },
-  sql: async () => {
-    if (!session) {
-      console.log('session is undefined!');
-      buffer = [];
-      rl.prompt();
-      return;  
-    }
-
-    const metricLabel = 'query execution time';
-    const sql = buffer.join(' ');
-    try {
-      console.time(metricLabel);
-      const result = await session.runSQL(sql)
-      console.timeEnd(metricLabel);
-      console.log(Table.print(result));
-      console.log(`${result.length} were selected...`);  
-    } catch (e) {
-      console.log(e);
-    } finally {
-      buffer = [];
-      rl.prompt();  
-    }
+  sql: query(),
+  total: query(false),
+  diag: () => {
+    console.log(JSON.stringify(session.diag, null, 2));
   },
   q: () => {
     rl.close();
@@ -64,8 +74,6 @@ const commands = {
 };
 
 rl.on('line', input => {
-  input = input.toLowerCase();
-
   if (input in commands) {
     commands[input]();
   } else {

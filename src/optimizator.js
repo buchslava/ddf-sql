@@ -86,7 +86,7 @@ module.exports = function optimizator(whereClause, idx, conceptTypeHash, entityD
         const realValues = getValuesSetByEntityConditionDescriptor(enityConditionDesc, conditionalValue, idx, conceptTypeHash, entityDomainBySetHash);
 
         for (const value of realValues) {
-          const entityValuesToDatapointFile = idx.entityValueToDatapointFile[value] || [];
+          const entityValuesToDatapointFile = idx.entityValuesToDatapointFile[value] || [];
           for (const dpFileId of entityValuesToDatapointFile) {
             files.push(idx.resourcesMap.idToPath[dpFileId.toString()]);
           }

@@ -16,6 +16,8 @@ module.exports = class Session {
   }
 
   async runSQL(sqlQuery) {
+    this.diag = {};
+
     if (!this.datapackage) {
       this.datapackage = JSON.parse(await readFile(this.datpackagePath, 'utf-8'));
     }
@@ -24,18 +26,19 @@ module.exports = class Session {
     const ast = parser.parse(sqlQuery);
     const columnNames = ast.columns.map(columnDesc => columnDesc.expr.column);
     const resourcesMap = new Map();
-
-    // console.log(JSON.stringify(ast, null, 2));
-
     const { conceptTypeHash, entitySetByDomainHash, entityDomainBySetHash } = await getConceptsInfo(this.basePath, this.datapackage);
     const optimFiles = [];
 
     if (ast.from[0].table === 'datapoints') {
-      const idx = JSON.parse(await readFile(path.resolve(this.basePath, 'idx-datapoints.json'), 'utf-8'));
-      optimFiles.push(...optimizator(ast.where, idx, conceptTypeHash, entityDomainBySetHash));
+      if (!this.idx) {
+        this.idx = JSON.parse(await readFile(path.resolve(this.basePath, 'idx-datapoints.json'), 'utf-8'));
+      }
+
+      optimFiles.push(...optimizator(ast.where, this.idx, conceptTypeHash, entityDomainBySetHash));
+      this.diag.recommendedFiles = optimFiles;
     }
 
-    console.log(util.astToSQL(ast));
+    this.diag.normalizedSQL = util.astToSQL(ast);
 
     for (const conceptDesc of this.datapackage.ddfSchema[ast.from[0].table]) {
       const keys = intersection(conceptDesc.primaryKey, columnNames);
@@ -63,7 +66,10 @@ module.exports = class Session {
       }
     }
 
-    const recordFilterFun = getRecordFilterFun(ast);
+    this.diag.resourcesMap = resourcesMap;
+    const { recordFilterFun, source } = getRecordFilterFun(ast);
+    this.diag.source = source;
+
     return await query(this.basePath, resourcesMap, recordFilterFun, entitySetByDomainHash, entityDomainBySetHash, conceptTypeHash, columnNames);
   }
 

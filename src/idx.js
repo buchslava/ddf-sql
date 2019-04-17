@@ -23,20 +23,14 @@ async function readCsv(file) {
   return result;
 }
 
-function mapToObj(map) {
-  return Array.from(map).reduce((obj, [key, value]) => (
-    Object.assign(obj, { [key]: value })
-  ), {});
-}
-
 function getRecourcesMaps(datapackage) {
-  const idToPath = new Map();
-  const pathToId = new Map();
+  const idToPath = {};
+  const pathToId = {};
   let num = 1;
 
   for (const resource of datapackage.resources) {
-    idToPath.set(num, resource.path);
-    pathToId.set(resource.path, num);
+    idToPath[num] = resource.path;
+    pathToId[resource.path] = num;
     ++num;
   }
 
@@ -49,16 +43,16 @@ function getRecourcesMaps(datapackage) {
   const datapackage = JSON.parse(await readFile(datpackagePath, 'utf-8'));
   const { conceptTypeHash, entityDomainBySetHash } = await getConceptsInfo(basePath, datapackage);
   const resourcesMaps = getRecourcesMaps(datapackage);
-  const entityDomainsMap = new Map();
-  const entityValueToDapapointFileMap = new Map();
-  const entityAttributesMap = new Map();
+  const entityDomains = {};
+  const entityValuesToDatapointFile = {};
+  const entityAttributes = {};
 
   for (const resource of datapackage.resources) {
     const concept = resource.schema.primaryKey;
 
     if (!isArray(concept) && concept !== 'concept') {
       if (conceptTypeHash[concept] === 'entity_set' || conceptTypeHash[concept] === 'entity_domain') {
-        const domain = conceptTypeHash[concept] === 'entity_set' ? entityDomainBySetHash[resource.schema.primaryKey] : resource.schema.primaryKey;
+        const domain = conceptTypeHash[concept] === 'entity_set' ? entityDomainBySetHash[concept] : concept;
         const key = conceptTypeHash[concept] === 'entity_set' ? `${domain}@${concept}` : `${domain}@*`;
         const content = await readCsv(resolve(basePath, resource.path));
         const entitiesIds = [];
@@ -69,14 +63,16 @@ function getRecourcesMaps(datapackage) {
 
           for (const field of Object.keys(record)) {
             if ((field.indexOf('is--') === 0 || conceptTypeHash[field] === 'boolean') && record[field].toLowerCase() === 'true') {
-              if (!entityAttributesMap.has(field)) {
-                entityAttributesMap.set(field.replace('--', '__'), []);
+              const normField = field.replace('--', '__');
+
+              if (!entityAttributes[normField]) {
+                entityAttributes[normField] = [];
               }
 
-              entityAttributesMap.get(field.replace('--', '__')).push(entityId);
+              entityAttributes[normField].push(entityId);
 
-              if (field.indexOf('is--') === 0) {
-                isFields.push(field.replace('is--', ''));
+              if (field.indexOf('is__') === 0) {
+                isFields.push(field.replace('is__', ''));
               }
             }
           }
@@ -94,37 +90,35 @@ function getRecourcesMaps(datapackage) {
             for (const record of dpContent) {
               for (const isField of isFields) {
                 if (record[isField]) {
-                  if (!entityValueToDapapointFileMap.has(record[isField])) {
-                    entityValueToDapapointFileMap.set(record[isField], new Set());
+                  if (!entityValuesToDatapointFile[record[isField]]) {
+                    entityValuesToDatapointFile[record[isField]] = new Set();
                   }
 
-                  entityValueToDapapointFileMap.get(record[isField]).add(resourcesMaps.pathToId.get(dpResource.path));
+                  entityValuesToDatapointFile[record[isField]].add(resourcesMaps.pathToId[dpResource.path]);
                 }
               }
 
-              if (!entityValueToDapapointFileMap.has(record[concept || domain])) {
-                entityValueToDapapointFileMap.set(record[concept || domain], new Set());
-              }
+              if (record[concept || domain]) {
+                if (!entityValuesToDatapointFile[record[concept || domain]]) {
+                  entityValuesToDatapointFile[record[concept || domain]] = new Set();
+                }
 
-              entityValueToDapapointFileMap.get(record[concept || domain]).add(resourcesMaps.pathToId.get(dpResource.path));
+                entityValuesToDatapointFile[record[concept || domain]].add(resourcesMaps.pathToId[dpResource.path]);
+              }
             }
           }
         }
 
-        entityDomainsMap.set(key, entitiesIds);
+        entityDomains[key] = entitiesIds;
       }
     }
   }
 
-  const entityDomains = mapToObj(entityDomainsMap);
-  const entityValueToDatapointFile = {};
-  for (const [k, v] of entityValueToDapapointFileMap) {
-    entityValueToDatapointFile[k] = [...v];
+  for (const key of Object.keys(entityValuesToDatapointFile)) {
+    entityValuesToDatapointFile[key] = [...entityValuesToDatapointFile[key]];
   }
-  const entityAttributes = mapToObj(entityAttributesMap);
-  const idToPath = mapToObj(resourcesMaps.idToPath);
-  const pathToId = mapToObj(resourcesMaps.pathToId);
-  const resourcesMap = { idToPath, pathToId };
 
-  await writeFile('idx-datapoints.json', JSON.stringify({ entityDomains, entityAttributes, entityValueToDatapointFile, resourcesMap }, null, 2));
+  const resourcesMap = { idToPath: resourcesMaps.idToPath, pathToId: resourcesMaps.pathToId };
+
+  await writeFile('idx-datapoints.json', JSON.stringify({ entityDomains, entityAttributes, entityValuesToDatapointFile, resourcesMap }, null, 2));
 })();
