@@ -71,8 +71,12 @@ function getRecourcesMaps(datapackage) {
 
               entityAttributes[normField].push(entityId);
 
-              if (field.indexOf('is__') === 0) {
-                isFields.push(field.replace('is__', ''));
+              if (normField.indexOf('is__') === 0) {
+                const v = normField.replace('is__', '');
+
+                if (isFields.indexOf(v) < 0) {
+                  isFields.push(normField.replace('is__', ''));
+                }
               }
             }
           }
