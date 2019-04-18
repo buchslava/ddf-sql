@@ -16,6 +16,7 @@
     "url": "git+ssh://git@github.com/buchslava/ddf-sql.git"
   },
   "dependencies": {
+    "chalk": "2.4.2",
     "csv-parser": "2.2.0",
     "easy-table": "1.1.1",
     "flora-sql-parser": "0.9.1",

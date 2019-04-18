@@ -1,4 +1,4 @@
-const { intersection, difference } = require('lodash');
+const { intersection, difference, isEmpty } = require('lodash');
 const traverse = require('traverse');
 
 function getEntityConditionDescriptor(obj, conceptTypeHash) {
@@ -68,13 +68,24 @@ function getValuesSetByEntityConditionDescriptor(enityConditionDesc, values, idx
   return result;
 }
 
-module.exports = function optimizator(whereClause, idx, conceptTypeHash, entityDomainBySetHash) {
+module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainBySetHash) {
   const logicalOperators = new Map();
-  const conjunctionTable = [];
-  const disjunctionTable = [];
+  const conjunctionStruct = {};
+  const recommendedFiles = [];
 
-  traverse(whereClause).forEach(function (obj) {
+  let whereDetected = false;
+  let fakeId = 1;
+
+  traverse(ast).forEach(function (obj) {
     if (obj) {
+      if (obj.where) {
+        whereDetected = true;
+      }
+
+      if (!whereDetected) {
+        return;
+      }
+
       if (obj.operator === 'AND' || obj.operator === 'OR') {
         logicalOperators.set(this.level, obj.operator)
       }
@@ -88,21 +99,23 @@ module.exports = function optimizator(whereClause, idx, conceptTypeHash, entityD
         for (const value of realValues) {
           const entityValuesToDatapointFile = idx.entityValuesToDatapointFile[value] || [];
 
-          // console.log(value, logicalOperators.get(this.level - 1), entityValuesToDatapointFile);
-
           for (const dpFileId of entityValuesToDatapointFile) {
             files.push(idx.resourcesMap.idToPath[dpFileId.toString()]);
           }
         }
 
         const op = logicalOperators.get(this.level - 1);
+        const fakeKey = `${fakeId}`;
+
         if (op === 'AND') {
-          conjunctionTable.push(...files);
+          conjunctionStruct[fakeKey] = files;
         } else if (op === 'OR') {
-          disjunctionTable.push(...files);
+          recommendedFiles.push(...files);
         } else {
-          throw Error(`Wrong operator ${op}`);
+          recommendedFiles.push(...files);
         }
+
+        fakeId++;
 
         if (enityConditionDesc.attribute) {
           const valueToUpdate = Object.assign({}, this.node);
@@ -111,7 +124,7 @@ module.exports = function optimizator(whereClause, idx, conceptTypeHash, entityD
           valueToUpdate.left.table = null;
           valueToUpdate.right = {
             type: 'expr_list',
-            value: conditionalValue.map(v => ({type: 'string', value: v}))
+            value: conditionalValue.map(v => ({ type: 'string', value: v }))
           };
 
           this.update(valueToUpdate);
@@ -120,5 +133,22 @@ module.exports = function optimizator(whereClause, idx, conceptTypeHash, entityD
     }
   });
 
-  return intersection(conjunctionTable, disjunctionTable);
+  const conjunctionOptions = Object.values(conjunctionStruct);
+  let conjunctionChoice = null;
+
+  for (const option of conjunctionOptions) {
+    if (!conjunctionChoice || conjunctionChoice.length > option.length) {
+      conjunctionChoice = option;
+    }
+  }
+
+  if (!isEmpty(conjunctionChoice) && !isEmpty(recommendedFiles)) {
+    return intersection(conjunctionChoice, recommendedFiles);
+  } else if (!isEmpty(conjunctionChoice) && isEmpty(recommendedFiles)) {
+    return conjunctionChoice;
+  } else if (isEmpty(conjunctionChoice) && !isEmpty(recommendedFiles)) {
+    return recommendedFiles
+  }
+
+  return [];
 }

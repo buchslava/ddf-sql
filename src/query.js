@@ -43,13 +43,11 @@ module.exports = async function query(basePath, resourcesMap, recordFilterFun, e
               obj[key1] = record[key1];
             }
 
-            // ///////////////////////////
             for (const key1 of relatedKeys) {
               if (conceptTypeHash[key1] === 'entity_set' && !obj[key1]) {
                 obj[entityDomainBySetHash[key1]] = record[key1];
               }
             }
-            // ///////////////////////////
 
             dataMapping.set(key, obj);
           }

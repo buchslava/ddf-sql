@@ -34,7 +34,7 @@ module.exports = class Session {
         this.idx = JSON.parse(await readFile(path.resolve(this.basePath, 'idx-datapoints.json'), 'utf-8'));
       }
 
-      optimFiles.push(...optimizator(ast.where, this.idx, conceptTypeHash, entityDomainBySetHash));
+      optimFiles.push(...optimizator(ast, this.idx, conceptTypeHash, entityDomainBySetHash));
       this.diag.recommendedFiles = optimFiles;
     }
 
@@ -46,7 +46,7 @@ module.exports = class Session {
 
       if (keys.length === conceptDesc.primaryKey.length &&
         conceptDesc.primaryKey.length + values.length === columnNames.length &&
-        this.notEntities(values, conceptTypeHash)) {
+        includes(values, conceptDesc.value)) {
         for (const resource of this.datapackage.resources) {
           if (!isEmpty(optimFiles) && !includes(optimFiles, resource.path)) {
             continue;
@@ -71,15 +71,5 @@ module.exports = class Session {
     this.diag.source = source;
 
     return await query(this.basePath, resourcesMap, recordFilterFun, entitySetByDomainHash, entityDomainBySetHash, conceptTypeHash, columnNames);
-  }
-
-  notEntities(values, conceptTypeHash) {
-    for (const value of values) {
-      if (conceptTypeHash[value] === 'entity_set' || conceptTypeHash[value] === 'entity_domain') {
-        return false;
-      }
-    }
-
-    return true;
   }
 }

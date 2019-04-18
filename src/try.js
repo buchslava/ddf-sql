@@ -2,6 +2,7 @@ const Session = require('./session');
 
 console.time('sql');
 const session = new Session('../pop');
+const session2 = new Session('../sg');
 
 /*
 SELECT concept, concept_type FROM concepts
@@ -33,7 +34,12 @@ AND gender IN ('female') ORDER BY year`;*/
   /*const result2 = await session.runSQL(`SELECT geo FROM entities WHERE un_state='TRUE'`);
   console.log(result2);*/
 
-  const result = await session.runSQL(sql);
+  /*const result = await session.runSQL(sql);
+  console.timeEnd('sql');
+  console.log(result.length);*/
+
+  const result = await session2.runSQL(`select geo,time,working_hours_per_week from datapoints where geo.is__global=true OR geo IN ('arg', 'aus')`);
   console.timeEnd('sql');
   console.log(result.length);
+  // console.log(session2.diag);
 })();

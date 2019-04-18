@@ -38,7 +38,7 @@ function getRecourcesMaps(datapackage) {
 }
 
 (async () => {
-  const basePath = resolve('..', 'pop');
+  const basePath = resolve(process.argv[2]);
   const datpackagePath = resolve(basePath, 'datapackage.json');
   const datapackage = JSON.parse(await readFile(datpackagePath, 'utf-8'));
   const { conceptTypeHash, entityDomainBySetHash } = await getConceptsInfo(basePath, datapackage);
@@ -102,12 +102,14 @@ function getRecourcesMaps(datapackage) {
                 }
               }
 
-              if (record[concept || domain]) {
-                if (!entityValuesToDatapointFile[record[concept || domain]]) {
-                  entityValuesToDatapointFile[record[concept || domain]] = new Set();
+              const conceptOrDomainData = record[concept] || record[domain];
+
+              if (conceptOrDomainData) {
+                if (!entityValuesToDatapointFile[conceptOrDomainData]) {
+                  entityValuesToDatapointFile[conceptOrDomainData] = new Set();
                 }
 
-                entityValuesToDatapointFile[record[concept || domain]].add(resourcesMaps.pathToId[dpResource.path]);
+                entityValuesToDatapointFile[conceptOrDomainData].add(resourcesMaps.pathToId[dpResource.path]);
               }
             }
           }

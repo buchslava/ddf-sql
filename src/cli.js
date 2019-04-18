@@ -1,4 +1,5 @@
 const Table = require('easy-table')
+const chalk = require('chalk');
 const Session = require('./session');
 
 /*
@@ -25,7 +26,7 @@ rl.prompt();
 function query(printResult = true) {
   return async () => {
     if (!session) {
-      console.log('session is undefined!');
+      console.log(chalk.red('session is undefined!'));
       buffer = [];
       rl.prompt();
       return;
@@ -38,9 +39,9 @@ function query(printResult = true) {
       const result = await session.runSQL(sql);
       console.timeEnd(metricLabel);
       if (printResult) {
-        console.log(Table.print(result));
+        console.log(chalk.yellow(Table.print(result)));
       }
-      console.log(`${result.length} were selected...`);
+      console.log(chalk.blue(`${result.length} were selected...`));
     } catch (e) {
       console.log(e);
     } finally {
@@ -55,18 +56,18 @@ const commands = {
     const dsPath = buffer.join(' ');
     session = new Session(dsPath);
     buffer = [];
-    console.log(`session for "${session.basePath}"`);
+    console.log(chalk.green(`session for "${session.basePath}"\n`));
     rl.prompt();
   },
   session: () => {
-    console.log(`session for "${session.basePath}"`);
+    console.log(chalk.white(`session for "${session.basePath}"\n`));
     buffer = [];
     rl.prompt();
   },
   sql: query(),
   total: query(false),
   diag: () => {
-    console.log(JSON.stringify(session.diag, null, 2));
+    console.log(chalk.white(JSON.stringify(session.diag, null, 2), '\n'));
   },
   q: () => {
     rl.close();
