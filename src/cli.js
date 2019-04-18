@@ -66,7 +66,7 @@ const commands = {
   },
   sql: query(),
   total: query(false),
-  diag: () => {
+  explain: () => {
     console.log(chalk.white(JSON.stringify(session.diag, null, 2), '\n'));
   },
   q: () => {

@@ -1,4 +1,4 @@
-const { Parser, util } = require('flora-sql-parser');
+const { util } = require('flora-sql-parser');
 
 function replaceBetween(where, what, start, end) {
   return where.substring(0, start) + what + where.substring(end);
