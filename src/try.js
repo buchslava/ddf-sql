@@ -21,9 +21,13 @@ SELECT geo,year,gender,age,population FROM datapoints WHERE
 AND gender IN ('female') AND age NOT IN ('80plus','100plus') ORDER BY year`;*/
 
 
-const sql = `SELECT geo,year,gender,age,population FROM datapoints WHERE
+/*const sql = `SELECT geo,year,gender,age,population FROM datapoints WHERE
 geo IN ('afg') OR (year=2018
-AND gender IN ('female')) ORDER BY year`;
+AND gender IN ('female')) ORDER BY year`;*/
+
+const sql = `SELECT geo,year,gender,age,population FROM datapoints WHERE
+((geo IN ('afg') OR (year=2018 AND gender IN ('female'))) OR year=2018) AND geo.is__world_4region=true ORDER BY year`;
+
 
 /*const sql = `
 SELECT geo,year,gender,age,population FROM datapoints WHERE

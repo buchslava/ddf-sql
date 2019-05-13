@@ -1,4 +1,5 @@
 const { intersection, difference, isEmpty } = require('lodash');
+const uuidv4 = require('uuid/v4');
 const traverse = require('traverse');
 
 function getEntityConditionDescriptor(obj, conceptTypeHash) {
@@ -68,7 +69,7 @@ function getValuesSetByEntityConditionDescriptor(enityConditionDesc, values, idx
   return result;
 }
 
-module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainBySetHash) {
+function optimizatorOld(ast, idx, conceptTypeHash, entityDomainBySetHash) {
   const logicalOperators = new Map();
   const conjunctionStruct = {};
   const recommendedFiles = [];
@@ -149,6 +150,66 @@ module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainByS
   } else if (isEmpty(conjunctionChoice) && !isEmpty(recommendedFiles)) {
     return recommendedFiles
   }
+
+  return [];
+}
+
+module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainBySetHash) {
+  function getFilesConditionsExpression(vv) {
+    let result = '';
+
+    const commaBoundary = uuidv4();
+    const openParenthesesBoundary = uuidv4();
+    const closeParenthesesBoundary = uuidv4();
+
+    function processBranch(v) {
+      let isOp = false;
+
+      if (v && typeof v === 'object' && (v.operator === 'AND' || v.operator === 'OR')) {
+        result += `${v.operator}${openParenthesesBoundary}`;
+        isOp = true;
+      } else if (v.right && v.left && (v.left.column || v.left.table)) {
+        const val = JSON.stringify(v.right.value);
+        result += `${commaBoundary}${v.left.column}->${val}${commaBoundary}`;
+      }
+
+      if (v && typeof v === 'object') {
+        if (v.left) {
+          processBranch(v.left);
+        }
+        if (v.right) {
+          processBranch(v.right);
+        }
+      }
+
+      if (isOp) {
+        result += closeParenthesesBoundary;
+      }
+    }
+
+    processBranch(vv);
+
+    const fixCommaRegexp = new RegExp(`${commaBoundary}+`, 'g');
+    const fixOpenParenthesesRegexp = new RegExp(`${openParenthesesBoundary}${commaBoundary}`, 'g');
+    const fixCloseParenthesesRegexp = new RegExp(`${commaBoundary}${closeParenthesesBoundary}`, 'g');
+    const commaRegexp = new RegExp(`${commaBoundary}`, 'g');
+    const openParenthesesRegexp = new RegExp(`${openParenthesesBoundary}`, 'g');
+    const closeParenthesesRegexp = new RegExp(`${closeParenthesesBoundary}`, 'g');
+
+    result = result
+      .replace(fixCommaRegexp, commaBoundary)
+      .replace(fixOpenParenthesesRegexp, openParenthesesBoundary)
+      .replace(fixCloseParenthesesRegexp, closeParenthesesBoundary)
+      .replace(commaRegexp, ',')
+      .replace(openParenthesesRegexp, '(')
+      .replace(closeParenthesesRegexp, ')');
+
+
+    return result;
+  }
+
+  const result = getFilesConditionsExpression(ast.where);
+  console.log(result);
 
   return [];
 }
