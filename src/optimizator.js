@@ -155,30 +155,66 @@ function optimizatorOld(ast, idx, conceptTypeHash, entityDomainBySetHash) {
 }
 
 module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainBySetHash) {
-  function getFilesConditionsExpression(vv) {
+  function getFilesConditionsExpression(whereClause) {
     let result = '';
 
     const commaBoundary = uuidv4();
     const openParenthesesBoundary = uuidv4();
     const closeParenthesesBoundary = uuidv4();
 
-    function processBranch(v) {
+    function processBranch(branch) {
       let isOp = false;
 
-      if (v && typeof v === 'object' && (v.operator === 'AND' || v.operator === 'OR')) {
-        result += `${v.operator}${openParenthesesBoundary}`;
+      if (branch && typeof branch === 'object' && (branch.operator === 'AND' || branch.operator === 'OR')) {
+        result += `${branch.operator}${openParenthesesBoundary}`;
         isOp = true;
-      } else if (v.right && v.left && (v.left.column || v.left.table)) {
-        const val = JSON.stringify(v.right.value);
-        result += `${commaBoundary}${v.left.column}->${val}${commaBoundary}`;
+      } else if (branch.right && branch.left && (branch.left.column || branch.left.table)) {
+        const val = JSON.stringify(branch.right.value);
+        result += `${commaBoundary}${branch.left.column}->${val}${commaBoundary}`;
+
+        // ////////////////////////////////////////////////
+
+        const enityConditionDesc = getEntityConditionDescriptor(branch, conceptTypeHash);
+        if (enityConditionDesc) {
+          const files = [];
+          const conditionalValue = enityConditionDesc.attribute ? idx.entityAttributes[enityConditionDesc.attribute] : enityConditionDesc.value;
+          const realValues = getValuesSetByEntityConditionDescriptor(enityConditionDesc, conditionalValue, idx, conceptTypeHash, entityDomainBySetHash);
+
+          for (const value of realValues) {
+            const entityValuesToDatapointFile = idx.entityValuesToDatapointFile[value] || [];
+
+            for (const dpFileId of entityValuesToDatapointFile) {
+              files.push(idx.resourcesMap.idToPath[dpFileId.toString()]);
+            }
+          }
+
+          console.log(files);
+
+          /*if (enityConditionDesc.attribute) {
+            const valueToUpdate = Object.assign({}, this.node);
+            valueToUpdate.operator = 'IN';
+            valueToUpdate.left.column = valueToUpdate.left.table;
+            valueToUpdate.left.table = null;
+            valueToUpdate.right = {
+              type: 'expr_list',
+              value: conditionalValue.map(v => ({ type: 'string', value: v }))
+            };
+
+            this.update(valueToUpdate);
+          }*/
+
+          // ////////////////////////////////////////////////
+        } else {
+          console.log(JSON.stringify(branch));
+        }
       }
 
-      if (v && typeof v === 'object') {
-        if (v.left) {
-          processBranch(v.left);
+      if (branch && typeof branch === 'object') {
+        if (branch.left) {
+          processBranch(branch.left);
         }
-        if (v.right) {
-          processBranch(v.right);
+        if (branch.right) {
+          processBranch(branch.right);
         }
       }
 
@@ -187,7 +223,7 @@ module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainByS
       }
     }
 
-    processBranch(vv);
+    processBranch(whereClause);
 
     const fixCommaRegexp = new RegExp(`${commaBoundary}+`, 'g');
     const fixOpenParenthesesRegexp = new RegExp(`${openParenthesesBoundary}${commaBoundary}`, 'g');
@@ -196,20 +232,17 @@ module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainByS
     const openParenthesesRegexp = new RegExp(`${openParenthesesBoundary}`, 'g');
     const closeParenthesesRegexp = new RegExp(`${closeParenthesesBoundary}`, 'g');
 
-    result = result
+    return result
       .replace(fixCommaRegexp, commaBoundary)
       .replace(fixOpenParenthesesRegexp, openParenthesesBoundary)
       .replace(fixCloseParenthesesRegexp, closeParenthesesBoundary)
       .replace(commaRegexp, ',')
       .replace(openParenthesesRegexp, '(')
       .replace(closeParenthesesRegexp, ')');
-
-
-    return result;
   }
 
   const result = getFilesConditionsExpression(ast.where);
-  console.log(result);
+  console.log('\n\n\n', result);
 
   return [];
 }
