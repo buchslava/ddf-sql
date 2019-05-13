@@ -27,6 +27,7 @@ module.exports = class Session {
     const columnNames = ast.columns.map(columnDesc => columnDesc.expr.column);
     const resourcesMap = new Map();
     const { conceptTypeHash, entitySetByDomainHash, entityDomainBySetHash } = await getConceptsInfo(this.basePath, this.datapackage);
+    const allFiles = this.datapackage.resources.map(resource => resource.path);
     const optimFiles = [];
 
     if (ast.from[0].table === 'datapoints') {
@@ -34,7 +35,7 @@ module.exports = class Session {
         this.idx = JSON.parse(await readFile(path.resolve(this.basePath, 'idx-datapoints.json'), 'utf-8'));
       }
 
-      optimFiles.push(...optimizator(ast, this.idx, conceptTypeHash, entityDomainBySetHash));
+      optimFiles.push(...optimizator(ast, allFiles, this.idx, conceptTypeHash, entityDomainBySetHash));
       this.diag.recommendedFiles = optimFiles;
     }
 

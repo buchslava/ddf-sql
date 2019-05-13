@@ -1,6 +1,14 @@
-const { intersection, difference, isEmpty } = require('lodash');
+const { intersection, difference, concat, isEmpty } = require('lodash');
 const uuidv4 = require('uuid/v4');
 const traverse = require('traverse');
+
+global._AND = function () {
+  return intersection(...arguments);
+}
+
+global._OR = function () {
+  return concat(...arguments);
+}
 
 function getEntityConditionDescriptor(obj, conceptTypeHash) {
   if (!obj) {
@@ -154,7 +162,7 @@ function optimizatorOld(ast, idx, conceptTypeHash, entityDomainBySetHash) {
   return [];
 }
 
-module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainBySetHash) {
+module.exports = function optimizator(ast, allFiles, idx, conceptTypeHash, entityDomainBySetHash) {
   function getFilesConditionsExpression(whereClause) {
     let result = '';
 
@@ -166,14 +174,12 @@ module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainByS
       let isOp = false;
 
       if (branch && typeof branch === 'object' && (branch.operator === 'AND' || branch.operator === 'OR')) {
-        result += `${branch.operator}${openParenthesesBoundary}`;
+        result += `_${branch.operator}${openParenthesesBoundary}`;
         isOp = true;
       } else if (branch.right && branch.left && (branch.left.column || branch.left.table)) {
-        const val = JSON.stringify(branch.right.value);
-        result += `${commaBoundary}${branch.left.column}->${val}${commaBoundary}`;
-
+        // const val = JSON.stringify(branch.right.value);
+        // result += `${commaBoundary}${branch.left.column}->${val}${commaBoundary}`;
         // ////////////////////////////////////////////////
-
         const enityConditionDesc = getEntityConditionDescriptor(branch, conceptTypeHash);
         if (enityConditionDesc) {
           const files = [];
@@ -188,7 +194,7 @@ module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainByS
             }
           }
 
-          console.log(files);
+          result += `${commaBoundary}${JSON.stringify(files)}${commaBoundary}`;
 
           /*if (enityConditionDesc.attribute) {
             const valueToUpdate = Object.assign({}, this.node);
@@ -205,7 +211,7 @@ module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainByS
 
           // ////////////////////////////////////////////////
         } else {
-          console.log(JSON.stringify(branch));
+          result += `${commaBoundary}${JSON.stringify(allFiles)}${commaBoundary}`;
         }
       }
 
@@ -225,7 +231,7 @@ module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainByS
 
     processBranch(whereClause);
 
-    const fixCommaRegexp = new RegExp(`${commaBoundary}+`, 'g');
+    const fixCommaRegexp = new RegExp(`(${commaBoundary})+`, 'g');
     const fixOpenParenthesesRegexp = new RegExp(`${openParenthesesBoundary}${commaBoundary}`, 'g');
     const fixCloseParenthesesRegexp = new RegExp(`${commaBoundary}${closeParenthesesBoundary}`, 'g');
     const commaRegexp = new RegExp(`${commaBoundary}`, 'g');
@@ -242,7 +248,8 @@ module.exports = function optimizator(ast, idx, conceptTypeHash, entityDomainByS
   }
 
   const result = getFilesConditionsExpression(ast.where);
-  console.log('\n\n\n', result);
+  const resultFun = new Function(`return ${result};`);
+  console.log('\n\n\n', resultFun());
 
   return [];
 }
