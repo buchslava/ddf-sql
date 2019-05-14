@@ -1,6 +1,5 @@
-const { intersection, difference, concat, isEmpty } = require('lodash');
+const { intersection, difference, concat } = require('lodash');
 const uuidv4 = require('uuid/v4');
-const traverse = require('traverse');
 
 global._AND = function () {
   return intersection(...arguments);
@@ -77,91 +76,6 @@ function getValuesSetByEntityConditionDescriptor(enityConditionDesc, values, idx
   return result;
 }
 
-function optimizatorOld(ast, idx, conceptTypeHash, entityDomainBySetHash) {
-  const logicalOperators = new Map();
-  const conjunctionStruct = {};
-  const recommendedFiles = [];
-
-  let whereDetected = false;
-  let fakeId = 1;
-
-  traverse(ast).forEach(function (obj) {
-    if (obj) {
-      if (obj.where) {
-        whereDetected = true;
-      }
-
-      if (!whereDetected) {
-        return;
-      }
-
-      if (obj.operator === 'AND' || obj.operator === 'OR') {
-        logicalOperators.set(this.level, obj.operator)
-      }
-
-      const enityConditionDesc = getEntityConditionDescriptor(obj, conceptTypeHash);
-      if (enityConditionDesc) {
-        const files = [];
-        const conditionalValue = enityConditionDesc.attribute ? idx.entityAttributes[enityConditionDesc.attribute] : enityConditionDesc.value;
-        const realValues = getValuesSetByEntityConditionDescriptor(enityConditionDesc, conditionalValue, idx, conceptTypeHash, entityDomainBySetHash);
-
-        for (const value of realValues) {
-          const entityValuesToDatapointFile = idx.entityValuesToDatapointFile[value] || [];
-
-          for (const dpFileId of entityValuesToDatapointFile) {
-            files.push(idx.resourcesMap.idToPath[dpFileId.toString()]);
-          }
-        }
-
-        const op = logicalOperators.get(this.level - 1);
-        const fakeKey = `${fakeId}`;
-
-        if (op === 'AND') {
-          conjunctionStruct[fakeKey] = files;
-        } else if (op === 'OR') {
-          recommendedFiles.push(...files);
-        } else {
-          recommendedFiles.push(...files);
-        }
-
-        fakeId++;
-
-        if (enityConditionDesc.attribute) {
-          const valueToUpdate = Object.assign({}, this.node);
-          valueToUpdate.operator = 'IN';
-          valueToUpdate.left.column = valueToUpdate.left.table;
-          valueToUpdate.left.table = null;
-          valueToUpdate.right = {
-            type: 'expr_list',
-            value: conditionalValue.map(v => ({ type: 'string', value: v }))
-          };
-
-          this.update(valueToUpdate);
-        }
-      }
-    }
-  });
-
-  const conjunctionOptions = Object.values(conjunctionStruct);
-  let conjunctionChoice = null;
-
-  for (const option of conjunctionOptions) {
-    if (!conjunctionChoice || conjunctionChoice.length > option.length) {
-      conjunctionChoice = option;
-    }
-  }
-
-  if (!isEmpty(conjunctionChoice) && !isEmpty(recommendedFiles)) {
-    return intersection(conjunctionChoice, recommendedFiles);
-  } else if (!isEmpty(conjunctionChoice) && isEmpty(recommendedFiles)) {
-    return conjunctionChoice;
-  } else if (isEmpty(conjunctionChoice) && !isEmpty(recommendedFiles)) {
-    return recommendedFiles
-  }
-
-  return [];
-}
-
 module.exports = function optimizator(ast, allFiles, idx, conceptTypeHash, entityDomainBySetHash) {
   function getFilesConditionsExpression(whereClause) {
     let result = '';
@@ -177,9 +91,6 @@ module.exports = function optimizator(ast, allFiles, idx, conceptTypeHash, entit
         result += `_${branch.operator}${openParenthesesBoundary}`;
         isOp = true;
       } else if (branch.right && branch.left && (branch.left.column || branch.left.table)) {
-        // const val = JSON.stringify(branch.right.value);
-        // result += `${commaBoundary}${branch.left.column}->${val}${commaBoundary}`;
-        // ////////////////////////////////////////////////
         const enityConditionDesc = getEntityConditionDescriptor(branch, conceptTypeHash);
         if (enityConditionDesc) {
           const files = [];
@@ -196,20 +107,15 @@ module.exports = function optimizator(ast, allFiles, idx, conceptTypeHash, entit
 
           result += `${commaBoundary}${JSON.stringify(files)}${commaBoundary}`;
 
-          /*if (enityConditionDesc.attribute) {
-            const valueToUpdate = Object.assign({}, this.node);
-            valueToUpdate.operator = 'IN';
-            valueToUpdate.left.column = valueToUpdate.left.table;
-            valueToUpdate.left.table = null;
-            valueToUpdate.right = {
+          if (enityConditionDesc.attribute) {
+            branch.operator = 'IN';
+            branch.left.column = branch.left.table;
+            branch.left.table = null;
+            branch.right = {
               type: 'expr_list',
               value: conditionalValue.map(v => ({ type: 'string', value: v }))
             };
-
-            this.update(valueToUpdate);
-          }*/
-
-          // ////////////////////////////////////////////////
+          }
         } else {
           result += `${commaBoundary}${JSON.stringify(allFiles)}${commaBoundary}`;
         }
@@ -249,7 +155,6 @@ module.exports = function optimizator(ast, allFiles, idx, conceptTypeHash, entit
 
   const result = getFilesConditionsExpression(ast.where);
   const resultFun = new Function(`return ${result};`);
-  console.log('\n\n\n', resultFun());
 
-  return [];
+  return resultFun();
 }
